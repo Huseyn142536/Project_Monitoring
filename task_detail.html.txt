@@ -2,32 +2,7 @@
 {% load crispy_forms_tags %}
 
 {% block content %}
-<style>
-    .task-card {
-        border-radius: 10px;
-        border: 1px solid #dee2e6;
-        transition: box-shadow 0.2s ease-in-out;
-    }
-    .task-card:hover {
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    }
-    .task-expired {
-        border-left: 6px solid #dc3545;
-        background-color: #f8d7da;
-    }
-    .task-warning {
-        border-left: 6px solid #ffc107;
-        background-color: #fff8e1;
-    }
-    .task-normal {
-        border-left: 6px solid #0d6efd;
-    }
-    .badge-warning-icon {
-        color: red;
-        font-weight: bold;
-        margin-right: 4px;
-    }
-</style>
+
 
 <div class="task-card p-4 mb-4 {% if task.is_expired %}task-expired{% elif task.is_warning %}task-warning{% else %}task-normal{% endif %}">
     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -85,77 +60,50 @@
     {% endif %}
 </div>
 
-{% if user.is_authenticated %}
-    {% if user.is_superuser %}
-        <div class="card shadow-sm">
-            <div class="card-header bg-light fw-bold">
-                📂 Qoşma Fayllar
-            </div>
-            <div class="card-body">
-                <ul class="list-group mb-3">
-                    {% for fayl in task.qoshmafayl_set.all %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <div>
-                                <a href="{{ fayl.fayl.url }}" target="_blank">{{ fayl.fayl.name|cut:"qoshma_fayllar/" }}</a>
-                                <p class="mb-0"><small class="text-muted">{{ fayl.tesvir }}</small></p>
-                            </div>
-                            <div>
-                                <a href="{% url 'qoshmafayl-update' fayl.pk %}" class="btn btn-outline-secondary btn-sm">Redaktə</a>
-                                <a href="{% url 'qoshmafayl-delete' fayl.pk %}" class="btn btn-outline-danger btn-sm">Sil</a>
-                            </div>
-                        </li>
-                    {% empty %}
-                        <li class="list-group-item text-center text-muted">Heç bir qoşma fayl tapılmadı.</li>
-                    {% endfor %}
-                </ul>
+{% comment %} Bu kodu task_detail.html faylına yerləşdirin {% endcomment %}
 
-                <hr>
-                <h6>Yeni Qoşma Fayl Yüklə</h6>
-                <form method="post" enctype="multipart/form-data">
-                    {% csrf_token %}
-                    {{ qoshma_fayl_form|crispy }}
-                    <button type="submit" class="btn btn-success mt-2">Faylı Yüklə</button>
-                </form>
-            </div>
-        </div>
-    {% else %}
-        {% if task.icrachi %}
-            {% if task.icrachi.user.id == user.id %}
-                <div class="card shadow-sm">
-                    <div class="card-header bg-light fw-bold">
-                        📂 Qoşma Fayllar
+<div class="card shadow-sm mt-4">
+    <div class="card-header bg-light fw-bold">
+        📂 Qoşma Fayllar
+    </div>
+    <div class="card-body">
+        
+        {% comment %} Faylların siyahısı burada göstərilir {% endcomment %}
+        <ul class="list-group mb-3">
+            {% for fayl in attachments %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <a href="{{ fayl.fayl.url }}" target="_blank">{{ fayl.fayl.name|cut:"qoshma_fayllar/" }}</a>
+                        {% if fayl.tesvir %}<p class="mb-0"><small class="text-muted">{{ fayl.tesvir }}</small></p>{% endif %}
                     </div>
-                    <div class="card-body">
-                        <ul class="list-group mb-3">
-                            {% for fayl in task.qoshmafayl_set.all %}
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <a href="{{ fayl.fayl.url }}" target="_blank">{{ fayl.fayl.name|cut:"qoshma_fayllar/" }}</a>
-                                        <p class="mb-0"><small class="text-muted">{{ fayl.tesvir }}</small></p>
-                                    </div>
-                                    <div>
-                                        <a href="{% url 'qoshmafayl-update' fayl.pk %}" class="btn btn-outline-secondary btn-sm">Redaktə</a>
-                                        <a href="{% url 'qoshmafayl-delete' fayl.pk %}" class="btn btn-outline-danger btn-sm">Sil</a>
-                                    </div>
-                                </li>
-                            {% empty %}
-                                <li class="list-group-item text-center text-muted">Heç bir qoşma fayl tapılmadı.</li>
-                            {% endfor %}
-                        </ul>
+                    
+                    {% comment %} Redaktə/Sil düymələri yalnız icazəsi olanlara görünür {% endcomment %}
+                    {% if user.is_superuser or user.ishchi == task.icrachi %}
+                    <div>
+                        <a href="{% url 'qoshmafayl-update' fayl.pk %}" class="btn btn-outline-secondary btn-sm">Redaktə</a>
+                        <a href="{% url 'qoshmafayl-delete' fayl.pk %}" class="btn btn-outline-danger btn-sm">Sil</a>
+                    </div>
+                    {% endif %}
+                </li>
+            {% empty %}
+                <li class="list-group-item text-center text-muted">Heç bir qoşma fayl tapılmadı.</li>
+            {% endfor %}
+        </ul>
 
-                        <hr>
-                        <h6>Yeni Qoşma Fayl Yüklə</h6>
-                        <form method="post" enctype="multipart/form-data">
-                            {% csrf_token %}
-                            {{ qoshma_fayl_form|crispy }}
-                            <button type="submit" class="btn btn-success mt-2">Faylı Yüklə</button>
-                        </form>
-                    </div>
-                </div>
-            {% endif %}
+        {% comment %} 
+            ƏSAS HİSSƏ: Fayl yükləmə forması da eyni icazə şərtinin içinə alındı.
+            Rəis bu hissəni görməyəcək.
+        {% endcomment %}
+        {% if user.is_superuser or user.ishchi == task.icrachi %}
+        <hr>
+        <h6>Yeni Qoşma Fayl Yüklə</h6>
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            {{ qoshma_fayl_form|crispy }}
+            <button type="submit" class="btn btn-success mt-2">Faylı Yüklə</button>
+        </form>
         {% endif %}
-    {% endif %}
-{% endif %}
-
-<a href="{% url 'task-list' %}" class="btn btn-secondary mt-3">⬅ Bütün tapşırıqlara qayıt</a>
+        
+    </div>
+</div>
 {% endblock %}
