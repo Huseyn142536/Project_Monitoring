@@ -140,8 +140,8 @@ admin_dashboard.html
                     </td>
                     <td>
                         <a href="{% url 'task-redirect' %}?icrachi_id={{ ishchi.pk }}&status=İcra edilmədi" class="clickable-link">
-                            <span class="badge bg-danger">{{ ishchi.icra_edilmedi.count }}</span>
-                        </a> ({{ ishchi.icradilmedi.percent }}%)
+    <span class="badge bg-danger">{{ ishchi.icra_edilmedi.count }}</span>
+</a> ({{ ishchi.icra_edilmedi.percent }}%)
                     </td>
                 </tr>
                 {% endfor %}
@@ -151,3 +151,4 @@ admin_dashboard.html
 </div>
 
 {% endblock %}
+
