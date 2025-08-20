@@ -1,0 +1,394 @@
+# products/views.py
+
+from datetime import date
+from django.db.models import Q
+from django.views.generic import (
+    ListView, DetailView, CreateView, UpdateView, DeleteView, TemplateView
+)
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.urls import reverse_lazy, reverse
+from django.shortcuts import redirect
+from django.contrib import messages
+
+# Modellər və Formlar bir yerdə import edilir
+from .models import Tapshiriq, Ishchi, Shobe, QoshmaFayl, Qanunvericilik
+from .forms import TaskForm, QoshmaFaylForm, QanunvericilikForm
+
+# views.py faylının yuxarısına əlavə edin
+
+class TaskOwnerOrAdminMixin(UserPassesTestMixin):
+    """
+    İstifadəçinin superuser, Admin, Rəis VƏ YA tapşırığın icraçısı olub-olmadığını yoxlayır.
+    """
+    def test_func(self):
+        user = self.request.user
+        if user.is_superuser:
+            return True
+
+        ishchi = getattr(user, 'ishchi', None)
+        if not ishchi:
+            return False
+            
+        # Admin və Rəislər istənilən tapşırığı redaktə edə bilər
+        if ishchi.istifadechi_tipi in ('Admin', 'Rəis'):
+            return True
+        
+        # Hazırda baxılan tapşırıq obyektini götürürük
+        task = self.get_object()
+
+        # Əgər tapşırığın icraçısı hazırkı istifadəçidirsə, icazə ver
+        if task.icrachi == ishchi:
+            return True
+            
+        return False
+    
+class AdminRequiredMixin(LoginRequiredMixin):
+    """
+    Yalnız superuser və ya Ishchi.istifadechi_tipi 'Admin' və ya 'Rəis' olan istifadəçilərə icazə verir.
+    """
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+        if request.user.is_superuser:
+            return super().dispatch(request, *args, **kwargs)
+
+        ishchi = getattr(request.user, "ishchi", None)
+        if ishchi and ishchi.istifadechi_tipi in ("Admin", "Rəis"):
+            return super().dispatch(request, *args, **kwargs)
+        
+        return self.handle_no_permission()
+    
+
+
+class AdminDashboardView(AdminRequiredMixin, TemplateView):
+    template_name = 'products/admin_dashboard.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        tasks_for_stats = Tapshiriq.objects.exclude(icrachi__istifadechi_tipi='Rəis')
+
+        total_tasks = tasks_for_stats.count()
+        icradadir_count = tasks_for_stats.filter(status='İcradadır').count()
+        icra_edildi_count = tasks_for_stats.filter(status='İcra edildi').count()
+        icra_edilmədi_count = tasks_for_stats.filter(status='İcra edilmədi').count()
+
+        def percent(count, total):
+            return round(count / total * 100, 2) if total else 0
+
+        context['total_tasks'] = total_tasks
+        context['status_stats'] = {
+            'icradadir': {'count': icradadir_count, 'percent': percent(icradadir_count, total_tasks)},
+            'icra_edildi': {'count': icra_edildi_count, 'percent': percent(icra_edildi_count, total_tasks)},
+            'icra_edilmedi': {'count': icra_edilmədi_count, 'percent': percent(icra_edilmədi_count, total_tasks)},
+        }
+
+        shobe_stats = []
+        for shobe in Shobe.objects.all():
+            total = tasks_for_stats.filter(icrachi__shobe=shobe).count()
+            icradadir = tasks_for_stats.filter(icrachi__shobe=shobe, status='İcradadır').count()
+            icra_edildi = tasks_for_stats.filter(icrachi__shobe=shobe, status='İcra edildi').count()
+            icra_edilmedi = tasks_for_stats.filter(icrachi__shobe=shobe, status='İcra edilmədi').count()
+
+            shobe_stats.append({
+                'pk': shobe.pk, 'ad': shobe.ad, 'total': total,
+                'icradadir': {'count': icradadir, 'percent': percent(icradadir, total)},
+                'icra_edildi': {'count': icra_edildi, 'percent': percent(icra_edildi, total)},
+                'icra_edilmedi': {'count': icra_edilmedi, 'percent': percent(icra_edilmedi, total)},
+            })
+        context['shobe_stats'] = shobe_stats
+
+        ishchi_stats = []
+        for ishchi in Ishchi.objects.exclude(istifadechi_tipi='Rəis'):
+            total = tasks_for_stats.filter(icrachi=ishchi).count()
+            icradadir = tasks_for_stats.filter(icrachi=ishchi, status='İcradadır').count()
+            icra_edildi = tasks_for_stats.filter(icrachi=ishchi, status='İcra edildi').count()
+            icra_edilmedi = tasks_for_stats.filter(icrachi=ishchi, status='İcra edilmədi').count()
+
+            ishchi_stats.append({
+                'pk': ishchi.pk, 'ad': f"{ishchi.ad} {ishchi.soyad}", 'total': total,
+                'icradadir': {'count': icradadir, 'percent': percent(icradadir, total)},
+                'icra_edildi': {'count': icra_edildi, 'percent': percent(icra_edildi, total)},
+                'icra_edilmedi': {'count': icra_edilmedi, 'percent': percent(icra_edilmedi, total)},
+            })
+        context['ishchi_stats'] = ishchi_stats
+
+        return context
+
+
+class TaskListView(LoginRequiredMixin, ListView):
+    model = Tapshiriq
+    template_name = 'products/task_list.html'
+    context_object_name = 'tasks'
+
+    def get_queryset(self):
+        today = date.today()
+        Tapshiriq.objects.filter(status='İcradadır', son_icra_tarixi__lt=today).update(status='İcra edilmədi')
+        Tapshiriq.objects.filter(status='İcra edilmədi', son_icra_tarixi__gte=today).update(status='İcradadır')
+
+        base_qs = Tapshiriq.objects.select_related('icrachi', 'icrachi__shobe').all()
+        user = self.request.user
+        ishchi = getattr(user, 'ishchi', None)
+
+        allowed_qs = base_qs.none()
+        if user.is_superuser or (ishchi and ishchi.istifadechi_tipi == 'Admin'):
+            allowed_qs = base_qs
+        
+        # <<< YENİ VƏ DAHA DÜZGÜN RƏİS MƏNTİQİ >>>
+        elif ishchi and ishchi.istifadechi_tipi == 'Rəis':
+            # Əgər rəisin şöbəsi yoxdursa, o, baş rəisdir və hamısını görür
+            if not ishchi.shobe:
+                allowed_qs = base_qs
+            # Əgər şöbəsi varsa, yalnız öz şöbəsini görür
+            else:
+                allowed_qs = base_qs.filter(icrachi__shobe=ishchi.shobe)
+        
+        elif ishchi:
+            allowed_qs = base_qs.filter(icrachi=ishchi)
+
+        # URL parametrləri ilə filterləmə (bu hissə dəyişməyib)
+        icrachi_id = self.request.GET.get('icrachi_id')
+        shobe_id = self.request.GET.get('shobe_id')
+        status = self.request.GET.get('status')
+        search_query = self.request.GET.get('q')
+
+        if icrachi_id:
+            allowed_qs = allowed_qs.filter(icrachi_id=icrachi_id)
+        if shobe_id:
+            allowed_qs = allowed_qs.filter(icrachi__shobe_id=shobe_id)
+        if status:
+            allowed_qs = allowed_qs.filter(status=status)
+        if search_query:
+            allowed_qs = allowed_qs.filter(
+                Q(mezmun__icontains=search_query) |
+                Q(qeydiyyat_nomresi__icontains=search_query) |
+                Q(icrachi__ad__icontains=search_query) |
+                Q(icrachi__soyad__icontains=search_query)
+            ).distinct()
+
+        return allowed_qs.order_by('-daxil_olma_tarixi')
+
+
+# products/views.py faylında bu klassı da yenisi ilə əvəz edin
+
+class TaskDetailView(LoginRequiredMixin, DetailView):
+    model = Tapshiriq
+    template_name = 'products/task_detail.html'
+    context_object_name = 'task'
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        user = self.request.user
+        ishchi = getattr(user, 'ishchi', None)
+
+        if user.is_superuser or (ishchi and ishchi.istifadechi_tipi == 'Admin'):
+            return qs
+        
+        # <<< YENİ VƏ DAHA DÜZGÜN RƏİS MƏNTİQİ >>>
+        elif ishchi and ishchi.istifadechi_tipi == 'Rəis':
+            # Əgər rəisin şöbəsi yoxdursa, o, baş rəisdir və hamısını görür
+            if not ishchi.shobe:
+                return qs
+            # Əgər şöbəsi varsa, yalnız öz şöbəsinin tapşırıqlarına baxa bilər
+            else:
+                return qs.filter(icrachi__shobe=ishchi.shobe)
+        
+        elif ishchi:
+            return qs.filter(icrachi=ishchi)
+        
+        return qs.none()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        task = self.get_object()
+        context['attachments'] = QoshmaFayl.objects.filter(tapshiriq=task)
+        context['qoshma_fayl_form'] = QoshmaFaylForm()
+        return context
+
+    # post metodu dəyişməz qalıb...
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        form = QoshmaFaylForm(request.POST, request.FILES)
+        if form.is_valid():
+            qoshma_fayl = form.save(commit=False)
+            qoshma_fayl.tapshiriq = self.object
+            qoshma_fayl.save()
+            messages.success(request, "Fayl uğurla əlavə edildi.")
+            return redirect('task-detail', pk=self.object.pk)
+        
+        context = self.get_context_data()
+        context['qoshma_fayl_form'] = form
+        return self.render_to_response(context)
+
+# products/views.py
+
+class TaskCreateView(LoginRequiredMixin, CreateView):
+    model = Tapshiriq
+    form_class = TaskForm
+    template_name = 'products/task_form.html'
+    success_url = reverse_lazy('task-list')
+
+    def get_form_kwargs(self):
+        # Form-a user göndəririk ki, forms.py-də istifadə olunsun
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
+
+    def form_valid(self, form):
+        # Əgər formdan icraçı gəlməyibsə (əməkdaşdırsa) özünü təyin edir
+        if not form.instance.icrachi:
+            try:
+                form.instance.icrachi = Ishchi.objects.get(user=self.request.user)
+            except Ishchi.DoesNotExist:
+                messages.error(self.request, "Sizin 'İşçilər' cədvəlində profiliniz tapılmadı.")
+                return self.form_invalid(form)
+
+        messages.success(self.request, "Tapşırıq uğurla yaradıldı.")
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        messages.error(self.request, "Formda səhvlər var, zəhmət olmasa düzəldin.")
+        return super().form_invalid(form)
+    
+class TaskUpdateView(LoginRequiredMixin, TaskOwnerOrAdminMixin, UpdateView):
+    model = Tapshiriq
+    form_class = TaskForm
+    template_name = 'products/task_form.html'
+    success_url = reverse_lazy('task-list')
+
+    # ... metodların qalan hissəsi olduğu kimi qalır
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
+
+    def form_valid(self, form):
+        messages.success(self.request, "Tapşırıq uğurla yeniləndi.")
+        return super().form_valid(form)
+
+class TaskDeleteView(LoginRequiredMixin, TaskOwnerOrAdminMixin, DeleteView):
+    model = Tapshiriq
+    template_name = 'products/task_confirm_delete.html'
+    success_url = reverse_lazy('task-list')
+
+    # ... metodların qalan hissəsi olduğu kimi qalır
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, "Tapşırıq uğurla silindi.")
+        return response
+
+
+class QoshmaFaylAccessMixin(UserPassesTestMixin):
+    """
+    Qoşma faylı yalnız superuser, admin, rəis və ya tapşırığın öz icraçısı dəyişə/silə bilsin.
+    """
+    def test_func(self):
+        user = self.request.user
+        if user.is_superuser:
+            return True
+        
+        qoshma_fayl = self.get_object()
+        task_icrachi = qoshma_fayl.tapshiriq.icrachi
+        
+        ishchi = getattr(user, 'ishchi', None)
+        if not ishchi:
+            return False
+            
+        if ishchi.istifadechi_tipi in ('Admin', 'Rəis'):
+            return True # Admin və Rəislər dəyişə bilər
+        
+        if ishchi == task_icrachi:
+            return True # Tapşırığın öz icraçısı dəyişə bilər
+            
+        return False
+
+
+class QoshmaFaylUpdateView(LoginRequiredMixin, QoshmaFaylAccessMixin, UpdateView):
+    model = QoshmaFayl
+    fields = ['fayl', 'tesvir']
+    template_name = 'products/qoshmafayl_form.html'
+
+    def get_success_url(self):
+        messages.success(self.request, "Qoşma fayl uğurla yeniləndi.")
+        return reverse('task-detail', kwargs={'pk': self.object.tapshiriq.pk})
+
+
+class QoshmaFaylDeleteView(LoginRequiredMixin, QoshmaFaylAccessMixin, DeleteView):
+    model = QoshmaFayl
+    template_name = 'products/qoshmafayl_confirm_delete.html'
+
+    def get_success_url(self):
+        messages.success(self.request, "Qoşma fayl silindi.")
+        return reverse('task-detail', kwargs={'pk': self.object.tapshiriq.pk})
+
+
+def task_redirect_view(request):
+    # Bu view-da dəyişiklik edilməyib, məntiqi düzgündür.
+    icrachi_id = request.GET.get('icrachi_id')
+    shobe_id = request.GET.get('shobe_id')
+    status = request.GET.get('status')
+    queryset = Tapshiriq.objects.exclude(icrachi__istifadechi_tipi='Rəis')
+
+    if icrachi_id:
+        queryset = queryset.filter(icrachi_id=icrachi_id)
+    if shobe_id:
+        queryset = queryset.filter(icrachi__shobe_id=shobe_id)
+    if status:
+        queryset = queryset.filter(status=status)
+
+    if queryset.count() == 1:
+        return redirect('task-detail', pk=queryset.first().pk)
+    
+    url = reverse('task-list')
+    params = request.GET.urlencode()
+    if params:
+        url += f"?{params}"
+    return redirect(url)
+
+
+# Qanunvericilik Views (əsasən toxunulmayıb, çünki məntiqləri düzgündür)
+class QanunvericilikListView(ListView):
+    model = Qanunvericilik
+    template_name = 'products/qanunvericilik_list.html'
+    context_object_name = 'laws'
+
+    def get_queryset(self):
+        q = self.request.GET.get('q', '').strip()
+        if q:
+            return Qanunvericilik.objects.filter(
+                Q(ad__icontains=q) | Q(metn__icontains=q)
+            ).order_by('-yaradildi')
+        return Qanunvericilik.objects.all().order_by('-yaradildi')
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        all_laws = ctx.get('laws', Qanunvericilik.objects.none())
+        ctx['nha_list'] = all_laws.filter(kateqoriya='NHA')
+        ctx['gos_list'] = all_laws.filter(kateqoriya='GOS')
+        ctx['search_query'] = self.request.GET.get('q', '')
+        return ctx
+
+class QanunvericilikDetailView(DetailView):
+    model = Qanunvericilik
+    template_name = 'products/qanunvericilik_detail.html'
+    context_object_name = 'law'
+
+class SuperuserRequiredMixin(UserPassesTestMixin):
+    def test_func(self):
+        return self.request.user.is_superuser
+
+class QanunvericilikCreateView(LoginRequiredMixin, SuperuserRequiredMixin, CreateView):
+    model = Qanunvericilik
+    form_class = QanunvericilikForm
+    template_name = 'products/qanunvericilik_form.html'
+    success_url = reverse_lazy('qanunvericilik-list')
+
+class QanunvericilikUpdateView(LoginRequiredMixin, SuperuserRequiredMixin, UpdateView):
+    model = Qanunvericilik
+    form_class = QanunvericilikForm
+    template_name = 'products/qanunvericilik_form.html'
+    success_url = reverse_lazy('qanunvericilik-list')
+
+class QanunvericilikDeleteView(LoginRequiredMixin, SuperuserRequiredMixin, DeleteView):
+    model = Qanunvericilik
+    template_name = 'products/qanunvericilik_confirm_delete.html'
+    success_url = reverse_lazy('qanunvericilik-list')

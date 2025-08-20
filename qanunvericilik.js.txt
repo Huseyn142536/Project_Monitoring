@@ -1,0 +1,54 @@
+qanunvericilik.js
+
+document.addEventListener('DOMContentLoaded', function () {
+  let audio = new Audio();
+  let activeBtn = null;
+
+  function setPlay(btn) {
+    btn.classList.remove('playing');
+    btn.innerHTML = '<i class="bi bi-play-fill"></i>';
+  }
+  function setPause(btn) {
+    btn.classList.add('playing');
+    btn.innerHTML = '<i class="bi bi-pause-fill"></i>';
+  }
+
+  document.querySelectorAll('.play-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const src = btn.dataset.src;
+      if (!src) return;
+
+      // Əgər eyni düyməyə basılıbsa
+      if (activeBtn === btn && !audio.paused) {
+        audio.pause();
+        return;
+      }
+      if (activeBtn === btn && audio.paused) {
+        audio.play().catch(() => setPlay(btn));
+        return;
+      }
+
+      // Əvvəlki səsi dayandır
+      if (activeBtn && activeBtn !== btn) setPlay(activeBtn);
+      try { audio.pause(); } catch (e) {}
+
+      // Yeni səsi başlat
+      audio.src = src;
+      activeBtn = btn;
+      audio.play().then(() => setPause(btn)).catch((err) => {
+        console.error('Audio play error', err);
+        setPlay(btn);
+        activeBtn = null;
+      });
+    });
+  });
+
+  audio.addEventListener('pause', function () {
+    if (activeBtn) setPlay(activeBtn);
+  });
+
+  audio.addEventListener('ended', function () {
+    if (activeBtn) setPlay(activeBtn);
+    activeBtn = null;
+  });
+});

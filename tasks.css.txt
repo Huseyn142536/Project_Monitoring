@@ -1,0 +1,218 @@
+/* ===========================
+   1) ÜMUMİ KART DİZAYNI VƏ EFFEKTİ
+=========================== */
+
+/* Əsas kart görünüşü */
+.task-card {
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(20, 20, 40, 0.05);
+  overflow: hidden;
+  transition: transform .08s ease, box-shadow .12s ease;
+  background-color: #fff;
+  border: 1px solid rgba(16, 24, 40, 0.06);
+}
+
+
+body.dark-mode .task-card {
+  background-color: #240f0f;
+  border-color: rgba(255,255,255,0.06);
+  color: #e6eef6;
+}
+
+.task-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 22px rgba(20, 20, 40, 0.08);
+}
+
+/* Sol border status rəngləri */
+.task-card.border-start-4 {
+  border-left-width: 6px !important;
+  border-left-style: solid;
+}
+
+.status-icradadır, .status-icradadir {
+  border-left-color: #0d6efd;
+}
+.status-icraedildi, .status-icra-edildi {
+  border-left-color: #198754;
+}
+.status-icraedilmədi, .status-icraedilmadi {
+  border-left-color: #ff0000;
+}
+.status-unknown {
+  border-left-color: #adb5bd;
+}
+
+/* Vaxt keçmiş */
+.task-expired {
+  background: rgba(255, 0, 25, 0.06);
+}
+
+/* Action düymələri */
+.card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+}
+.card-actions .btn-sm {
+  padding: 0.28rem 0.5rem;
+  border-radius: 0.4rem;
+}
+
+/* Kiçik ekran adaptasiyası */
+@media (max-width: 575.98px) {
+  .task-title {
+    font-size: 1rem;
+  }
+  .task-meta {
+    font-size: 0.85rem;
+  }
+  .card-actions {
+    justify-content: flex-start;
+  }
+}
+
+
+
+/* ===========================
+   2) BADGELƏRİN RƏNGLƏRİ VƏ EFFEKTİ
+=========================== */
+
+/* Sol tərəfdəki məlumat badge-ləri */
+.task-info-badge {
+  display: block;
+  width: fit-content;
+  margin-bottom: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-weight: 500;
+  font-size: 0.9rem;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+  white-space: nowrap;
+}
+
+.task-badge-primary {
+  background: linear-gradient(90deg, #717377, #717377);
+  color: #ffffff;
+}
+.task-badge-secondary {
+  background: linear-gradient(90deg, #717377, #777171);
+  color: #ffffff;
+}
+.task-badge-info {
+  background: linear-gradient(90deg, #717377, #717377);
+  color: #ffffff;
+}
+.task-badge-danger {
+  background: linear-gradient(90deg, #dc3545, #e35d6a);
+  color: #ffffff;
+}
+.task-badge-warning {
+  background: linear-gradient(90deg, #ffc107, #ffd35c);
+  color: #000;
+}
+.task-badge-success {
+  background: linear-gradient(90deg, #198754, #28a745);
+  color: #ffffff;
+}
+
+/* Sağ tərəfdəki status badge-ləri */
+.status-badge, .task-card .badge.bg-warning, .task-card .badge.bg-danger {
+  display: inline-block;
+  font-weight: 700;
+  font-size: 0.80rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.45rem;
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.status-icradadir {
+  background: linear-gradient(90deg, #0d6efd, #4da3ff);
+  color: #fff;
+}
+.status-icraedildi {
+  background: linear-gradient(90deg, #198754, #40c98d);
+  color: #fff;
+}
+.status-icraedilmedi {
+  background: linear-gradient(90deg, #ff0000, #ff4d4d);
+  color: #fff;
+}
+.status-unknown {
+  background: linear-gradient(90deg, #adb5bd, #ced4da);
+  color: #000;
+}
+
+/* Digər xəbərdarlıq badge-ləri */
+.task-card .badge.bg-warning {
+  background: linear-gradient(90deg, #ffc107, #ffda6a);
+  color: #3c2f00;
+}
+.task-card .badge.bg-danger {
+  background: linear-gradient(90deg, #dc3545, #ff6b81);
+}
+
+/* ===========================
+   3) FORM STİLLƏRİ (task_form.html-dən)
+=========================== */
+input[type="text"], input[type="date"], select, textarea, input[type="file"], input[type="number"] {
+    display: block;
+    width: 100%;
+    padding: .5rem .75rem;
+    font-size: 1rem;
+    line-height: 1.5;
+    color: #212529;
+    background-color: #fff;
+    border: 1px solid #ced4da;
+    border-radius: .25rem;
+    box-sizing: border-box;
+  }
+
+  textarea[name="mezmun"] {
+  min-height: 20px;
+  max-height: 70px;
+  resize: vertical;
+}
+
+textarea[name="qeyd"] {
+  min-height: 20px;
+  max-height: 70px;
+  resize: vertical;
+}
+
+@media (max-width: 576px) {
+  textarea[name="mezmun"],
+  textarea[name="qeyd"] {
+    min-height: 50px;
+  }
+}
+
+
+.task-form textarea {
+  min-height: 20px;
+  max-height: 70px;
+  resize: vertical;
+}
+
+@media (max-width: 576px) {
+  .task-form textarea {
+    min-height: 50px;
+  }
+}
+
+/* ===========================
+   4) DELETE SƏHİFƏSİ STİLLƏRİ
+=========================== */
+.delete-card {
+  border: 1px solid #dc3545;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.delete-card .card-title {
+  color: #dc3545;
+  font-weight: bold;
+}

@@ -1,0 +1,119 @@
+qanunvericilik_list.html
+
+
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="fw-bold mb-0">Qanunvericilik</h2>
+  <div class="d-flex align-items-center">
+    <form method="get" class="me-2" role="search">
+      <div class="input-group">
+        <input type="text" name="q" class="form-control" placeholder="Axtar..." value="{{ search_query|default:'' }}">
+        <button class="btn btn-outline-secondary" type="submit">
+          <i class="bi bi-search"></i>
+        </button>
+      </div>
+    </form>
+    {% if user.is_superuser %}
+      <a href="{% url 'qanunvericilik-create' %}" class="btn btn-primary ms-2">
+        <i class="bi bi-plus-lg me-1"></i> Yeni əlavə et
+      </a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- Normativ Hüquqi Aktlar -->
+  <div class="col-md-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header fw-bold">Normativ Hüquqi Aktlar</div>
+      <div class="card-body p-0" style="max-height:70vh; overflow:auto;">
+        <ul class="list-group list-group-flush">
+          {% for law in nha_list %}
+            <li class="list-group-item d-flex align-items-center">
+              <div class="flex-fill pe-2">
+                {% if law.link %}
+                  <a href="{{ law.link }}" target="_blank" class="list-item-title d-block text-truncate" title="{{ law.ad }}">
+                    {{ law.ad }}
+                  </a>
+                {% else %}
+                  <a href="{% url 'qanunvericilik-detail' law.pk %}" class="list-item-title d-block text-truncate" title="{{ law.ad }}">
+                    {{ law.ad }}
+                  </a>
+                {% endif %}
+              </div>
+              <div class="d-flex align-items-center ms-2">
+                {% if law.audio_fayl %}
+                  <button type="button"
+                          class="btn btn-outline-secondary btn-sm play-btn"
+                          data-src="{{ law.audio_fayl.url }}"
+                          title="Audio oynat">
+                    <i class="bi bi-play-fill"></i>
+                  </button>
+                {% endif %}
+                {% if user.is_superuser %}
+                  <div class="btn-group btn-group-sm ms-2">
+                    <a href="{% url 'qanunvericilik-update' law.pk %}" class="btn btn-outline-secondary">Redaktə</a>
+                    <a href="{% url 'qanunvericilik-delete' law.pk %}" class="btn btn-outline-danger">Sil</a>
+                  </div>
+                {% endif %}
+              </div>
+            </li>
+          {% empty %}
+            <li class="list-group-item text-center text-muted py-4">
+              Heç bir Normativ Akt tapılmadı.
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Göstərişlər -->
+  <div class="col-md-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header fw-bold">Göstərişlər</div>
+      <div class="card-body p-0" style="max-height:70vh; overflow:auto;">
+        <ul class="list-group list-group-flush">
+          {% for law in gos_list %}
+            <li class="list-group-item d-flex align-items-center">
+              <div class="flex-fill pe-2">
+                <a href="{% url 'qanunvericilik-detail' law.pk %}" class="list-item-title d-block text-truncate" title="{{ law.ad }}">
+                  {{ law.ad }}
+                </a>
+              </div>
+              <div class="d-flex align-items-center ms-2">
+                {% if law.audio_fayl %}
+                  <button type="button"
+                          class="btn btn-outline-secondary btn-sm play-btn"
+                          data-src="{{ law.audio_fayl.url }}"
+                          title="Audio oynat">
+                    <i class="bi bi-play-fill"></i>
+                  </button>
+                {% endif %}
+                {% if user.is_superuser %}
+                  <div class="btn-group btn-group-sm ms-2">
+                    <a href="{% url 'qanunvericilik-update' law.pk %}" class="btn btn-outline-secondary">Redaktə</a>
+                    <a href="{% url 'qanunvericilik-delete' law.pk %}" class="btn btn-outline-danger">Sil</a>
+                  </div>
+                {% endif %}
+              </div>
+            </li>
+          {% empty %}
+            <li class="list-group-item text-center text-muted py-4">
+              Heç bir Göstəriş tapılmadı.
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/qanunvericilik.js' %}"></script>
+{% endblock %}

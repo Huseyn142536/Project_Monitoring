@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+{% load widget_tweaks %}
+
+
+{% block content %}
+<div class="container mt-4">
+  <div class="card shadow-sm border-0">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+      <div class="d-flex align-items-center gap-3">
+        <i class="bi bi-plus-circle fs-4"></i>
+        <h4 class="mb-0">
+          {% if form.instance.pk %}Tapşırığı Redaktə et{% else %}Yeni Tapşırıq Yarat{% endif %}
+        </h4>
+      </div>
+      <a href="{% url 'task-list' %}" class="btn btn-light btn-sm">
+        <i class="bi bi-arrow-left"></i> Geri
+      </a>
+    </div>
+
+    <div class="card-body p-4 bg-white">
+      <form method="post" enctype="multipart/form-data" novalidate class="task-form">
+        {% csrf_token %}
+
+        <div class="mb-3">
+          <label for="{{ form.qeydiyyat_nomresi.id_for_label }}" class="form-label fw-bold">Qeydiyyat №*</label>
+          {{ form.qeydiyyat_nomresi|add_class:"form-control" }}
+          {% if form.qeydiyyat_nomresi.errors %}
+            <div class="text-danger small mt-1">{{ form.qeydiyyat_nomresi.errors }}</div>
+          {% endif %}
+        </div>
+
+        <div class="mb-3">
+          <label for="{{ form.son_icra_tarixi.id_for_label }}" class="form-label fw-bold">Son icra tarixi*</label>
+          {{ form.son_icra_tarixi|add_class:"form-control" }}
+          {% if form.son_icra_tarixi.errors %}
+            <div class="text-danger small mt-1">{{ form.son_icra_tarixi.errors }}</div>
+          {% endif %}
+        </div>
+
+        <div class="mb-3">
+          <label for="{{ form.mezmun.id_for_label }}" class="form-label fw-bold">Məzmun*</label>
+          {{ form.mezmun|add_class:"form-control" }}
+          {% if form.mezmun.errors %}
+            <div class="text-danger small mt-1">{{ form.mezmun.errors }}</div>
+          {% endif %}
+        </div>
+
+        <div class="mb-3">
+          <label for="{{ form.qeyd.id_for_label }}" class="form-label fw-bold">Qeyd</label>
+          {{ form.qeyd|add_class:"form-control" }}
+          {% if form.qeyd.errors %}
+            <div class="text-danger small mt-1">{{ form.qeyd.errors }}</div>
+          {% endif %}
+        </div>
+
+        {% if form.icrachi and form.icrachi.field.disabled %}
+          <input type="hidden" name="icrachi" value="{{ form.initial.icrachi.pk }}">
+        {% endif %}
+
+        <div class="mb-3">
+          <label for="{{ form.status.id_for_label }}" class="form-label fw-bold">Status*</label>
+          {{ form.status|add_class:"form-control" }}
+          {% if form.status.errors %}
+            <div class="text-danger small mt-1">{{ form.status.errors }}</div>
+          {% endif %}
+        </div>
+
+        <div class="mb-3">
+          <label for="{{ form.nezaret_tipi.id_for_label }}" class="form-label fw-bold">Nəzarət tipi*</label>
+          {{ form.nezaret_tipi|add_class:"form-control" }}
+          {% if form.nezaret_tipi.errors %}
+            <div class="text-danger small mt-1">{{ form.nezaret_tipi.errors }}</div>
+          {% endif %}
+        </div>
+
+        <div class="mb-3">
+          <label for="{{ form.esas_fayl.id_for_label }}" class="form-label fw-bold">Əsas fayl</label>
+          {{ form.esas_fayl|add_class:"form-control" }}
+          {% if form.esas_fayl.errors %}
+            <div class="text-danger small mt-1">{{ form.esas_fayl.errors }}</div>
+          {% endif %}
+        </div>
+
+        <div class="d-flex justify-content-end mt-4">
+          <button type="submit" class="btn btn-success px-4 me-2">
+            <i class="bi bi-save"></i> Yadda saxla
+          </button>
+          <a href="{% url 'task-list' %}" class="btn btn-outline-secondary px-4">
+            <i class="bi bi-x-circle"></i> Ləğv et
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

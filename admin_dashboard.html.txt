@@ -1,0 +1,153 @@
+admin_dashboard.html
+
+
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+    .clickable-link {
+        text-decoration: none;
+        transition: all 0.2s ease-in-out;
+    }
+    .clickable-link:hover {
+        text-decoration: underline;
+        filter: brightness(1.2);
+    }
+</style>
+
+<h1 class="mb-4">📊 Hesabat Paneli</h1>
+
+<!-- Ümumi Statistika Kartları -->
+<div class="row mb-4">
+    <div class="col-md-3 col-6 mb-3">
+        <div class="card text-center shadow-sm border-0 bg-primary text-white">
+            <div class="card-body">
+                <h5 class="card-title">Toplam Tapşırıq</h5>
+                <h2>{{ total_tasks }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6 mb-3">
+        <div class="card text-center shadow-sm border-0 bg-warning text-dark">
+            <div class="card-body">
+                <h5 class="card-title">İcradadır</h5>
+                <h2>
+                    <a href="{% url 'task-redirect' %}?status=İcradadır" class="clickable-link text-dark">
+                        {{ status_stats.icradadir.count }}
+                    </a>
+                </h2>
+                <small>{{ status_stats.icradadir.percent }}%</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6 mb-3">
+        <div class="card text-center shadow-sm border-0 bg-success text-white">
+            <div class="card-body">
+                <h5 class="card-title">İcra edildi</h5>
+                <h2>
+                    <a href="{% url 'task-redirect' %}?status=İcra edildi" class="clickable-link text-white">
+                        {{ status_stats.icra_edildi.count }}
+                    </a>
+                </h2>
+                <small>{{ status_stats.icra_edildi.percent }}%</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6 mb-3">
+        <div class="card text-center shadow-sm border-0 bg-danger text-white">
+            <div class="card-body">
+                <h5 class="card-title">İcra edilmədi</h5>
+                <h2>
+                    <a href="{% url 'task-redirect' %}?status=İcra edilmədi" class="clickable-link text-white">
+                        {{ status_stats.icra_edilmedi.count }}
+                    </a>
+                </h2>
+                <small>{{ status_stats.icra_edilmedi.percent }}%</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Şöbələr üzrə Statistika -->
+<div class="card mb-4 shadow-sm">
+    <div class="card-header fw-bold">📌 Şöbələr üzrə Statistika</div>
+    <div class="card-body table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Şöbə</th>
+                    <th>Cəmi</th>
+                    <th>İcradadır</th>
+                    <th>İcra edildi</th>
+                    <th>İcra edilmədi</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for shobe in shobe_stats %}
+                <tr>
+                    <td>{{ shobe.ad }}</td>
+                    <td><a href="{% url 'task-redirect' %}?shobe_id={{ shobe.pk }}" class="clickable-link">{{ shobe.total }}</a></td>
+                    <td>
+                        <a href="{% url 'task-redirect' %}?shobe_id={{ shobe.pk }}&status=İcradadır" class="clickable-link">
+                            <span class="badge bg-warning text-dark">{{ shobe.icradadir.count }}</span>
+                        </a> ({{ shobe.icradadir.percent }}%)
+                    </td>
+                    <td>
+                        <a href="{% url 'task-redirect' %}?shobe_id={{ shobe.pk }}&status=İcra edildi" class="clickable-link">
+                            <span class="badge bg-success">{{ shobe.icra_edildi.count }}</span>
+                        </a> ({{ shobe.icra_edildi.percent }}%)
+                    </td>
+                    <td>
+                        <a href="{% url 'task-redirect' %}?shobe_id={{ shobe.pk }}&status=İcra edilmədi" class="clickable-link">
+                            <span class="badge bg-danger">{{ shobe.icra_edilmedi.count }}</span>
+                        </a> ({{ shobe.icra_edilmedi.percent }}%)
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- İşçilər üzrə Statistika -->
+<div class="card shadow-sm">
+    <div class="card-header fw-bold">👨‍💼 İşçilər üzrə Statistika</div>
+    <div class="card-body table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>İşçi</th>
+                    <th>Cəmi</th>
+                    <th>İcradadır</th>
+                    <th>İcra edildi</th>
+                    <th>İcra edilmədi</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ishchi in ishchi_stats %}
+                <tr>
+                    <td>{{ ishchi.ad }}</td>
+                    <td><a href="{% url 'task-redirect' %}?icrachi_id={{ ishchi.pk }}" class="clickable-link">{{ ishchi.total }}</a></td>
+                    <td>
+                        <a href="{% url 'task-redirect' %}?icrachi_id={{ ishchi.pk }}&status=İcradadır" class="clickable-link">
+                            <span class="badge bg-warning text-dark">{{ ishchi.icradadir.count }}</span>
+                        </a> ({{ ishchi.icradadir.percent }}%)
+                    </td>
+                    <td>
+                        <a href="{% url 'task-redirect' %}?icrachi_id={{ ishchi.pk }}&status=İcra edildi" class="clickable-link">
+                            <span class="badge bg-success">{{ ishchi.icra_edildi.count }}</span>
+                        </a> ({{ ishchi.icra_edildi.percent }}%)
+                    </td>
+                    <td>
+                        <a href="{% url 'task-redirect' %}?icrachi_id={{ ishchi.pk }}&status=İcra edilmədi" class="clickable-link">
+                            <span class="badge bg-danger">{{ ishchi.icra_edilmedi.count }}</span>
+                        </a> ({{ ishchi.icradilmedi.percent }}%)
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,74 @@
+# products/forms.py
+
+from django import forms
+from .models import Tapshiriq, QoshmaFayl, Qanunvericilik, Ishchi
+
+
+class TaskForm(forms.ModelForm):
+    class Meta:
+        model = Tapshiriq
+        fields = [
+            'qeydiyyat_nomresi', 'mezmun', 'qeyd', 'icrachi',
+            'son_icra_tarixi', 'status', 'nezaret_tipi', 'esas_fayl'
+        ]
+        widgets = {
+            'son_icra_tarixi': forms.TextInput(attrs={'class': 'form-control'})
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+
+        # Bütün inputlara default class veririk
+        for field in self.fields.values():
+            field.widget.attrs.setdefault('class', 'form-control')
+
+        # İstifadəçi superuser deyilsə
+        if self.user and not self.user.is_superuser:
+            try:
+                ishchi = Ishchi.objects.get(user=self.user)
+
+                if ishchi.istifadechi_tipi == "Əməkdaş":
+                    # Əməkdaş üçün icrachi gizlədilir və vacib olmur
+                    self.fields['icrachi'].widget = forms.HiddenInput()
+                    self.fields['icrachi'].required = False
+
+                elif ishchi.istifadechi_tipi in ("Rəis", "Admin"):
+                    # Rəis/Admin yalnız əməkdaşları icraçı kimi seçə bilər
+                    self.fields['icrachi'].queryset = Ishchi.objects.filter(
+                        istifadechi_tipi="Əməkdaş"
+                    )
+
+            except Ishchi.DoesNotExist:
+                # Əgər işçi tapılmadısa bütün sahələri deaktiv et
+                for field in self.fields.values():
+                    field.disabled = True
+
+    def clean(self):
+        """
+        Əgər əməkdaşdırsa və icrachi boşdursa, avtomatik özünü icraçı təyin edir.
+        """
+        cleaned_data = super().clean()
+        icrachi = cleaned_data.get('icrachi')
+
+        if not icrachi and self.user:
+            try:
+                ishchi = Ishchi.objects.get(user=self.user)
+                if ishchi.istifadechi_tipi == "Əməkdaş":
+                    cleaned_data['icrachi'] = ishchi
+            except Ishchi.DoesNotExist:
+                pass
+
+        return cleaned_data
+
+
+class QoshmaFaylForm(forms.ModelForm):
+    class Meta:
+        model = QoshmaFayl
+        fields = ['fayl', 'tesvir']
+
+
+class QanunvericilikForm(forms.ModelForm):
+    class Meta:
+        model = Qanunvericilik
+        fields = ['ad', 'metn', 'audio_fayl', 'link', 'kateqoriya']

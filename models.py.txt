@@ -1,0 +1,141 @@
+models.py
+
+# products/models.py
+from django.db import models
+from django.contrib.auth.models import User
+from datetime import date, timedelta
+
+
+class Shobe(models.Model):
+    ad = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.ad
+
+
+class Vezife(models.Model):
+    ad = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.ad
+
+
+class Ishchi(models.Model):
+    USER_TYPES = [
+        ('Admin', 'Admin'),
+        ('Əməkdaş', 'Əməkdaş'),
+        ('Rəis', 'Rəis'),
+    ]
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    ad = models.CharField(max_length=50)
+    soyad = models.CharField(max_length=50)
+    telefon = models.CharField(max_length=20, unique=True)
+    shobe = models.ForeignKey(Shobe, on_delete=models.SET_NULL, null=True, blank=True)
+    vezife = models.ForeignKey(Vezife, on_delete=models.SET_NULL, null=True, blank=True)
+    istifadechi_tipi = models.CharField(max_length=20, choices=USER_TYPES)
+
+    def __str__(self):
+        return f"{self.ad} {self.soyad}"
+
+
+class Tapshiriq(models.Model):
+    STATUS_CHOICES = [
+        ('İcradadır', 'İcradadır'),
+        ('İcra edildi', 'İcra edildi'),
+        ('İcra edilmədi', 'İcra edilmədi'),
+    ]
+    NEZARET_CHOICES = [
+        ('Nəzarətlə', 'Nəzarətlə'),
+        ('Nəzarətsiz', 'Nəzarətsiz'),
+    ]
+
+    qeydiyyat_nomresi = models.CharField(max_length=50, unique=True, verbose_name="Qeydiyyat №")
+    mezmun = models.TextField(verbose_name="Məzmun")
+    qeyd = models.TextField(verbose_name="Qeyd", blank=True, null=True)
+    icrachi = models.ForeignKey('Ishchi', on_delete=models.CASCADE, verbose_name="İcraçı")
+    daxil_olma_tarixi = models.DateField(auto_now_add=True, verbose_name="Daxil olma tarixi")
+    son_icra_tarixi = models.DateField(verbose_name="Son icra tarixi")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='İcradadır', verbose_name="Status")
+    nezaret_tipi = models.CharField(max_length=20, choices=NEZARET_CHOICES, default='Nəzarətsiz', verbose_name="Nəzarət tipi")
+    esas_fayl = models.FileField(upload_to='esas_fayllar/', null=True, blank=True, verbose_name="Əsas fayl")
+
+    def __str__(self):
+        return self.mezmun[:50]
+
+    def save(self, *args, **kwargs):
+        """
+        Avtomatik status məntiqi:
+        - Əgər status 'İcradadır' və tarix keçibsə -> 'İcra edilmədi'
+        - Əgər status 'İcra edilmədi' və tarix gələcəkdədirsə -> 'İcradadır'
+        Qeyd: queryset.update(...) çağırışı save() çağırmır — ona görə views.py-də
+        bulk update istifadə olunursa, həmin update əməliyyatına diqqət et.
+        """
+        today = date.today()
+
+        # Əvvəlcə mövcud vəziyyəti nəzərə alıb lazımi dəyişiklikləri et
+        if self.status == 'İcradadır' and self.son_icra_tarixi < today:
+            self.status = 'İcra edilmədi'
+        elif self.status == 'İcra edilmədi' and self.son_icra_tarixi >= today:
+            self.status = 'İcradadır'
+
+        super().save(*args, **kwargs)
+
+    @property
+    def effective_status(self):
+        """
+        Tarixə əsasən "real" status (məsələn: əgər status 'İcra edilmədi' amma tarix gələcəkdədirsə,
+        real vəziyyət 'İcradadır' kimi qiymətləndirilə bilər).
+        """
+        today = date.today()
+        if self.status == 'İcra edilmədi' and self.son_icra_tarixi >= today:
+            return 'İcradadır'
+        return self.status
+
+    @property
+    def is_warning(self):
+        """
+        Son 5 günə düşən, hələ icra edilməmiş tapşırıqlar üçün xəbərdarlıq.
+        (İcra edildi olanlar xəbərdar edilməz)
+        """
+        today = date.today()
+        if self.status == 'İcra edildi':
+            return False
+        return today <= self.son_icra_tarixi <= today + timedelta(days=5)
+
+    @property
+    def is_expired(self):
+        """
+        Əgər tapşırıq icra edilməyibsə və son_icra_tarixi keçibsə -> müddəti bitmiş.
+        Bu logic həm 'İcradadır', həm də 'İcra edilmədi' olan, tarix keçmiş tapşırıqları əhatə edəcək.
+        'İcra edildi' statusunda olanlar müddəti bitmiş sayılmayacaq.
+        """
+        today = date.today()
+        if self.status == 'İcra edildi':
+            return False
+        return self.son_icra_tarixi < today
+
+
+class QoshmaFayl(models.Model):
+    tapshiriq = models.ForeignKey(Tapshiriq, on_delete=models.CASCADE)
+    fayl = models.FileField(upload_to='qoshma_fayllar/')
+    tesvir = models.CharField(max_length=255, blank=True, null=True, verbose_name="Faylın təsviri")
+    yuhlenme_tarixi = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.fayl.name
+
+
+class Qanunvericilik(models.Model):
+    KATEQORIYA_SECIMLERI = [
+        ('NHA', 'Normativ Hüquqi Akt'),
+        ('GOS', 'Göstəriş'),
+    ]
+    ad = models.CharField(max_length=255)
+    metn = models.TextField()
+    audio_fayl = models.FileField(upload_to='qanunvericilik_audios/', blank=True, null=True)
+    link = models.URLField(blank=True, null=True)
+    kateqoriya = models.CharField(max_length=3, choices=KATEQORIYA_SECIMLERI)
+    yaradildi = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.ad
