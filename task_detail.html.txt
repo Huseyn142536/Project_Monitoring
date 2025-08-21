@@ -31,6 +31,9 @@
 
     <p><strong>Qeydiyyat nömrəsi:</strong> {{ task.qeydiyyat_nomresi }}</p>
     <p><strong>Məzmun:</strong> {{ task.mezmun }}</p>
+    {% if task.qeyd %}
+    <p><strong>Qeyd:</strong> {{ task.qeyd }}</p>
+{% endif %}
     <p><strong>İcraçı:</strong> {{ task.icrachi }}</p>
     <p><strong>Daxil olma tarixi:</strong> {{ task.daxil_olma_tarixi }}</p>
     <p>
