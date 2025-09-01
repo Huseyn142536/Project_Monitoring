@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="card shadow-sm mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 fw-bold">Nəzarət Qeydiyyatı Məlumatları</h5>
+        <div>
+            {% if user.is_superuser %}
+            <a href="{% url 'nezaret-update' item.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil"></i> Redaktə et</a>
+            <a href="{% url 'nezaret-delete' item.pk %}" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i> Sil</a>
+            {% endif %}
+            <a href="{% url 'nezaret-list' %}" class="btn btn-light btn-sm"><i class="bi bi-arrow-left"></i> Geri</a>
+        </div>
+    </div>
+    <div class="card-body">
+        <p><strong>Qeydiyyat №:</strong> {{ item.qeydiyyat_nomresi }}</p>
+        <p><strong>Məzmun:</strong> {{ item.mezmun|linebreaksbr }}</p>
+        <p><strong>İcraçı:</strong> {{ item.icrachi|default:"Təyin edilməyib" }}</p>
+        <p><strong>Daxil olma tarixi:</strong> {{ item.daxil_olma_tarixi|date:"d.m.Y" }}</p>
+        <p><strong>Say:</strong> {{ item.say }}</p>
+        {% if item.esas_fayl %}
+            <p><strong>Əsas fayl:</strong> <a href="{{ item.esas_fayl.url }}" target="_blank">Faylı göstər/yüklə</a></p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header fw-bold">Qoşma Fayllar</div>
+    <div class="card-body">
+        <ul class="list-group mb-3">
+            {% for fayl in item.qoshma_fayllar.all %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <a href="{{ fayl.fayl.url }}" target="_blank">{{ fayl.fayl.name|cut:"nezaret_qoshma_fayllar/" }}</a>
+                        {% if fayl.tesvir %}<p class="mb-0"><small class="text-muted">{{ fayl.tesvir }}</small></p>{% endif %}
+                    </div>
+                    {% if user.is_superuser %}
+                    <a href="{% url 'nezaret-qoshmafayl-delete' fayl.pk %}" class="btn btn-outline-danger btn-sm">Sil</a>
+                    {% endif %}
+                </li>
+            {% empty %}
+                <li class="list-group-item text-center text-muted">Heç bir qoşma fayl tapılmadı.</li>
+            {% endfor %}
+        </ul>
+        
+        {% if user.is_superuser %}
+        <hr>
+        <h6>Yeni Qoşma Fayl Yüklə</h6>
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            {{ qoshma_fayl_form|crispy }}
+            <button type="submit" class="btn btn-success mt-2">Yüklə</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

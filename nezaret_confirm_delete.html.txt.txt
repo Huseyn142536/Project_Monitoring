@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card border-danger shadow-sm">
+    <div class="card-header bg-danger text-white">
+        <h5 class="mb-0">Silmə əməliyyatını təsdiqləyin</h5>
+    </div>
+    <div class="card-body">
+        <p><strong>"{{ object.mezmun|truncatewords:15 }}"</strong> adlı qeydiyyatı silmək istədiyinizə əminsinizmi?</p>
+        <p class="text-muted">Bu əməliyyat geri qaytarıla bilməz.</p>
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">Bəli, Sil</button>
+            <a href="{% url 'nezaret-detail' object.pk %}" class="btn btn-secondary">Xeyr, Geri Qayıt</a>
+        </form>
+    </div>
+</div>
+{% endblock %}
