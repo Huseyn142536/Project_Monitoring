@@ -72,3 +72,24 @@ class QanunvericilikForm(forms.ModelForm):
     class Meta:
         model = Qanunvericilik
         fields = ['ad', 'metn', 'audio_fayl', 'link', 'kateqoriya']
+
+# products/forms.py faylına əlavə edin
+
+class NezaretForm(forms.ModelForm):
+    class Meta:
+        model = Nezaret
+        fields = ['mezmun', 'icrachi', 'qeydiyyat_nomresi', 'say', 'esas_fayl']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs.setdefault('class', 'form-control')
+        self.fields['icrachi'].queryset = Ishchi.objects.filter(
+            istifadechi_tipi__in=['Əməkdaş', 'Rəis']
+        )
+
+
+class NezaretQoshmaFaylForm(forms.ModelForm):
+    class Meta:
+        model = NezaretQoshmaFayl
+        fields = ['fayl', 'tesvir']
