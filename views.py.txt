@@ -14,6 +14,9 @@ from django.contrib import messages
 from .models import Tapshiriq, Ishchi, Shobe, QoshmaFayl, Qanunvericilik
 from .forms import TaskForm, QoshmaFaylForm, QanunvericilikForm
 
+from .models import Nezaret, NezaretQoshmaFayl
+from .forms import NezaretForm, NezaretQoshmaFaylForm
+
 # views.py faylının yuxarısına əlavə edin
 
 class TaskOwnerOrAdminMixin(UserPassesTestMixin):
@@ -392,3 +395,100 @@ class QanunvericilikDeleteView(LoginRequiredMixin, SuperuserRequiredMixin, Delet
     model = Qanunvericilik
     template_name = 'products/qanunvericilik_confirm_delete.html'
     success_url = reverse_lazy('qanunvericilik-list')
+
+    # products/views.py faylının sonuna əlavə edin
+
+class NezaretListView(LoginRequiredMixin, ListView):
+    model = Nezaret
+    template_name = 'products/nezaret_list.html'
+    context_object_name = 'items'
+    paginate_by = 10
+
+    def get_queryset(self):
+        search_query = self.request.GET.get('q', '')
+        qs = Nezaret.objects.select_related('icrachi').order_by('-daxil_olma_tarixi')
+        if search_query:
+            qs = qs.filter(
+                Q(mezmun__icontains=search_query) |
+                Q(qeydiyyat_nomresi__icontains=search_query) |
+                Q(icrachi__ad__icontains=search_query) |
+                Q(icrachi__soyad__icontains=search_query)
+            )
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['search_query'] = self.request.GET.get('q', '')
+        return context
+
+class NezaretDetailView(LoginRequiredMixin, DetailView):
+    model = Nezaret
+    template_name = 'products/nezaret_detail.html'
+    context_object_name = 'item'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['qoshma_fayl_form'] = NezaretQoshmaFaylForm()
+        return context
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        form = NezaretQoshmaFaylForm(request.POST, request.FILES)
+        if form.is_valid():
+            fayl = form.save(commit=False)
+            fayl.nezaret = self.object
+            fayl.save()
+            messages.success(request, "Qoşma fayl uğurla əlavə edildi.")
+            return redirect('nezaret-detail', pk=self.object.pk)
+        
+        context = self.get_context_data()
+        context['qoshma_fayl_form'] = form
+        return self.render_to_response(context)
+
+
+class NezaretCreateView(LoginRequiredMixin, CreateView):
+    model = Nezaret
+    form_class = NezaretForm
+    template_name = 'products/nezaret_form.html'
+    success_url = reverse_lazy('nezaret-list')
+
+    def form_valid(self, form):
+        messages.success(self.request, "Nəzarət tapşırığı uğurla yaradıldı.")
+        return super().form_valid(form)
+
+class NezaretUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+    model = Nezaret
+    form_class = NezaretForm
+    template_name = 'products/nezaret_form.html'
+    success_url = reverse_lazy('nezaret-list')
+
+    def test_func(self):
+        return self.request.user.is_superuser
+
+    def form_valid(self, form):
+        messages.success(self.request, "Nəzarət tapşırığı uğurla yeniləndi.")
+        return super().form_valid(form)
+
+class NezaretDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
+    model = Nezaret
+    template_name = 'products/nezaret_confirm_delete.html'
+    success_url = reverse_lazy('nezaret-list')
+
+    def test_func(self):
+        return self.request.user.is_superuser
+    
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, "Nəzarət tapşırığı uğurla silindi.")
+        return response
+
+class NezaretQoshmaFaylDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
+    model = NezaretQoshmaFayl
+    template_name = 'products/qoshmafayl_confirm_delete.html'
+
+    def test_func(self):
+        return self.request.user.is_superuser
+
+    def get_success_url(self):
+        messages.success(self.request, "Qoşma fayl silindi.")
+        return reverse('nezaret-detail', kwargs={'pk': self.object.nezaret.pk})
