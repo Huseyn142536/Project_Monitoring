@@ -12,10 +12,14 @@ from django.contrib import messages
 from .models import Tapshiriq, Ishchi, Shobe, QoshmaFayl, Qanunvericilik, Nezaret, NezaretQoshmaFayl
 from .forms import TaskForm, QoshmaFaylForm, QanunvericilikForm, NezaretForm, NezaretQoshmaFaylForm
 
+from collections import OrderedDict
 from django.forms import modelformset_factory
 from .models import Struktur, StrukturQoshmaFayl, StrukturShexs
 from .forms import StrukturForm, StrukturQoshmaFaylForm, StrukturShexsForm
 
+from django.http import HttpResponse
+import openpyxl
+from django.shortcuts import get_object_or_404
 
 class TaskOwnerOrAdminMixin(UserPassesTestMixin):
     def test_func(self):
@@ -416,61 +420,68 @@ class StrukturDetailView(LoginRequiredMixin, DetailView):
     template_name = 'products/struktur_detail.html'
     context_object_name = 'item'
 
+    def get_formset(self, post_data=None):
+        ShexsFormSet = modelformset_factory(StrukturShexs, form=StrukturShexsForm, extra=5, can_delete=True)
+        queryset = StrukturShexs.objects.filter(struktur=self.get_object()).order_by('struktur_qurum', 'id')
+        
+        if post_data:
+            return ShexsFormSet(post_data, queryset=queryset, prefix='shexsler')
+        else:
+            return ShexsFormSet(queryset=queryset, prefix='shexsler')
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        struktur_item = self.get_object()
-        context['qoshma_fayl_form'] = StrukturQoshmaFaylForm()
-        
-        ShexsFormSet = modelformset_factory(StrukturShexs, form=StrukturShexsForm, extra=5, can_delete=True)
-        # Çeşidləmə vacibdir!
-        queryset = StrukturShexs.objects.filter(struktur=struktur_item).order_by('struktur_qurum', 'id')
-        
-        # Formseti POST sorğusu ilə birlikdə hazırlayırıq ki, xətalar görünsün
-        if self.request.method == 'POST' and 'save_shexsler' in self.request.POST:
-            formset = ShexsFormSet(self.request.POST, queryset=queryset, prefix='shexsler')
-        else:
-            formset = ShexsFormSet(queryset=queryset, prefix='shexsler')
+        formset = kwargs.get('formset') or self.get_formset()
 
-        # Formaları "struktur_qurum" adına görə qruplaşdırırıq
         grouped_forms = OrderedDict()
-        for form in formset:
-            group_key = form.initial.get('struktur_qurum') or "Yeni Qeydlər"
-            if group_key not in grouped_forms:
-                grouped_forms[group_key] = []
-            grouped_forms[group_key].append(form)
-
-        context['shexs_formset'] = formset  # Bu, management_form üçün lazımdır
-        context['grouped_forms'] = grouped_forms
+        new_forms = []
         
+        for form in formset:
+            if form.instance.pk:
+                group_key = form.initial.get('struktur_qurum')
+                if group_key:
+                    if group_key not in grouped_forms:
+                        grouped_forms[group_key] = []
+                    grouped_forms[group_key].append(form)
+            else:
+                new_forms.append(form)
+
+        context['qoshma_fayl_form'] = StrukturQoshmaFaylForm()
+        context['shexs_formset'] = formset
+        context['grouped_forms'] = grouped_forms
+        context['new_forms'] = new_forms
         return context
 
-    # "post" metodu əvvəlki kimi qalır, ona dəyməyin.
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
         
         if 'upload_attachment' in request.POST:
-            # ... (qoşma fayl məntiqi)
-            pass
+            form = StrukturQoshmaFaylForm(request.POST, request.FILES)
+            if form.is_valid():
+                fayl = form.save(commit=False)
+                fayl.struktur = self.object
+                fayl.save()
+                messages.success(request, "Qoşma fayl uğurla əlavə edildi.")
+            return redirect('struktur-detail', pk=self.object.pk)
+
         elif 'save_shexsler' in request.POST:
-            ShexsFormSet = modelformset_factory(StrukturShexs, form=StrukturShexsForm, extra=1, can_delete=True)
-            formset = ShexsFormSet(request.POST, prefix='shexsler')
+            formset = self.get_formset(post_data=request.POST)
             
             if formset.is_valid():
                 instances = formset.save(commit=False)
                 for instance in instances:
-                    instance.struktur = self.object
-                    instance.save()
+                    if instance.saa or instance.tevellud or instance.struktur_qurum: 
+                        instance.struktur = self.object
+                        instance.save()
+                
                 for form in formset.deleted_forms:
                     form.instance.delete()
+
                 messages.success(request, "Cədvəl uğurla yadda saxlanıldı.")
                 return redirect('struktur-detail', pk=self.object.pk)
             else:
                 messages.error(request, "Cədvəli yadda saxlayarkən xəta baş verdi. Zəhmət olmasa, səhvləri düzəldin.")
-                # Səhvli formanı istifadəçiyə geri göstəririk
-                context = self.get_context_data()
-                context['grouped_forms'] = None # Formsetdə xəta varsa, qruplaşdırmanı ləğv edirik
-                context['shexs_formset'] = formset
-                return self.render_to_response(context)
+                return self.render_to_response(self.get_context_data(formset=formset))
         
         return redirect('struktur-detail', pk=self.object.pk)
 
@@ -510,3 +521,34 @@ class StrukturQoshmaFaylDeleteView(LoginRequiredMixin, SuperuserRequiredMixin, D
     def get_success_url(self):
         messages.success(self.request, "Qoşma fayl silindi.")
         return reverse('struktur-detail', kwargs={'pk': self.object.struktur.pk})
+    
+    # FAYLIN SONUNA BU FUNKSİYANİ ƏLAVƏ EDİN
+
+def export_struktur_shexs_to_excel(request, pk):
+    struktur_item = get_object_or_404(Struktur, pk=pk)
+    shexsler = StrukturShexs.objects.filter(struktur=struktur_item).order_by('struktur_qurum', 'id')
+
+    workbook = openpyxl.Workbook()
+    worksheet = workbook.active
+    worksheet.title = 'Struktur Məlumatları'
+
+    # Sütun başlıqları
+    columns = ['S/S', 'S.A.A.', 'Təvəllüd', 'Struktur Qurum', 'Status', 'Qeyd']
+    for col_num, column_title in enumerate(columns, 1):
+        cell = worksheet.cell(row=1, column=col_num)
+        cell.value = column_title
+
+    # Məlumatlar
+    for row_num, shexs in enumerate(shexsler, 2):
+        worksheet.cell(row=row_num, column=1).value = row_num - 1
+        worksheet.cell(row=row_num, column=2).value = shexs.saa
+        worksheet.cell(row=row_num, column=3).value = shexs.tevellud
+        worksheet.cell(row=row_num, column=4).value = shexs.struktur_qurum
+        worksheet.cell(row=row_num, column=5).value = shexs.status
+        worksheet.cell(row=row_num, column=6).value = shexs.qeyd
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename=struktur_{pk}_melumatlari.xlsx'
+    
+    workbook.save(response)
+    return response
