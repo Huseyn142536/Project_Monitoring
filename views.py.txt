@@ -12,6 +12,9 @@ from django.contrib import messages
 from .models import Tapshiriq, Ishchi, Shobe, QoshmaFayl, Qanunvericilik, Nezaret, NezaretQoshmaFayl
 from .forms import TaskForm, QoshmaFaylForm, QanunvericilikForm, NezaretForm, NezaretQoshmaFaylForm
 
+from .models import StrukturQurum
+from .forms import StrukturQurumForm
+
 
 class TaskOwnerOrAdminMixin(UserPassesTestMixin):
     def test_func(self):
@@ -35,7 +38,7 @@ class AdminRequiredMixin(LoginRequiredMixin):
         if request.user.is_superuser:
             return super().dispatch(request, *args, **kwargs)
         ishchi = getattr(request.user, "ishchi", None)
-        if ishchi and ishchi.istifadechi_tipi in ("Admin", "Rəis"):
+        if ishchi and ishchi.istifadechi_tipi in ("Admin", "Rəis","Struktur Qurum"):
             return super().dispatch(request, *args, **kwargs)
         return self.handle_no_permission()
 
@@ -380,3 +383,39 @@ class NezaretQoshmaFaylDeleteView(LoginRequiredMixin, UserPassesTestMixin, Delet
     def get_success_url(self):
         messages.success(self.request, "Qoşma fayl silindi.")
         return reverse('nezaret-detail', kwargs={'pk': self.object.nezaret.pk})
+    
+    # ... (mövcud view-lardan sonra bu kodu əlavə edin)
+
+class StrukturQurumListView(LoginRequiredMixin, ListView):
+    model = StrukturQurum
+    template_name = 'products/struktur_list.html'
+    context_object_name = 'qurumlar'
+
+class StrukturQurumCreateView(LoginRequiredMixin, SuperuserRequiredMixin, CreateView):
+    model = StrukturQurum
+    form_class = StrukturQurumForm
+    template_name = 'products/struktur_form.html'
+    success_url = reverse_lazy('struktur-list')
+
+    def form_valid(self, form):
+        messages.success(self.request, "Yeni struktur qurum uğurla yaradıldı.")
+        return super().form_valid(form)
+
+class StrukturQurumUpdateView(LoginRequiredMixin, SuperuserRequiredMixin, UpdateView):
+    model = StrukturQurum
+    form_class = StrukturQurumForm
+    template_name = 'products/struktur_form.html'
+    success_url = reverse_lazy('struktur-list')
+
+    def form_valid(self, form):
+        messages.success(self.request, "Struktur qurum uğurla yeniləndi.")
+        return super().form_valid(form)
+
+class StrukturQurumDeleteView(LoginRequiredMixin, SuperuserRequiredMixin, DeleteView):
+    model = StrukturQurum
+    template_name = 'products/struktur_confirm_delete.html'
+    success_url = reverse_lazy('struktur-list')
+
+    def form_valid(self, form):
+        messages.success(self.request, "Struktur qurum silindi.")
+        return super().form_valid(form)
