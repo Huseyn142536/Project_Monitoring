@@ -1,6 +1,7 @@
 # products/forms.py
 from django import forms
 from .models import Tapshiriq, QoshmaFayl, Qanunvericilik, Ishchi, Nezaret, NezaretQoshmaFayl
+from .models import StrukturQurum
 
 
 class TaskForm(forms.ModelForm):
@@ -27,7 +28,7 @@ class TaskForm(forms.ModelForm):
                 if ishchi.istifadechi_tipi == "Əməkdaş":
                     self.fields['icrachi'].widget = forms.HiddenInput()
                     self.fields['icrachi'].required = False
-                elif ishchi.istifadechi_tipi in ("Rəis", "Admin"):
+                elif ishchi.istifadechi_tipi in ("Rəis", "Admin", "Struktur Qurum"):
                     self.fields['icrachi'].queryset = Ishchi.objects.filter(
                         istifadechi_tipi="Əməkdaş"
                     )
@@ -81,3 +82,11 @@ class NezaretQoshmaFaylForm(forms.ModelForm):
     class Meta:
         model = NezaretQoshmaFayl
         fields = ['fayl', 'tesvir']
+
+# ... (mövcud formalardan sonra)
+
+class StrukturQurumForm(forms.ModelForm):
+    # Bu sətirlərdən əvvəl 4 boşluq (və ya 1 Tab) olmalıdır
+    class Meta:
+        model = StrukturQurum
+        fields = ['ad']
