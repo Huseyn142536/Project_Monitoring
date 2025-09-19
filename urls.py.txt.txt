@@ -24,27 +24,28 @@ from .views import (
 )
 
 urlpatterns = [
+    # Tapşırıq URL-ləri
     path('', TaskListView.as_view(), name='task-list'),
     path('dashboard/', AdminDashboardView.as_view(), name='admin-dashboard'),
     path('task/new/', TaskCreateView.as_view(), name='task-create'),
     path('task/<int:pk>/', TaskDetailView.as_view(), name='task-detail'),
     path('task/<int:pk>/update/', TaskUpdateView.as_view(), name='task-update'),
     path('task/<int:pk>/delete/', TaskDeleteView.as_view(), name='task-delete'),
-
     path('qoshmafayl/<int:pk>/update/', QoshmaFaylUpdateView.as_view(), name='qoshmafayl-update'),
     path('qoshmafayl/<int:pk>/delete/', QoshmaFaylDeleteView.as_view(), name='qoshmafayl-delete'),
-
     path('task-redirect/', task_redirect_view, name='task-redirect'),
 
+    # Qanunvericilik URL-ləri
     path('qanunvericilik/', QanunvericilikListView.as_view(), name='qanunvericilik-list'),
     path('qanunvericilik/<int:pk>/', QanunvericilikDetailView.as_view(), name='qanunvericilik-detail'),
     path('qanunvericilik/new/', QanunvericilikCreateView.as_view(), name='qanunvericilik-create'),
     path('qanunvericilik/<int:pk>/update/', QanunvericilikUpdateView.as_view(), name='qanunvericilik-update'),
     path('qanunvericilik/<int:pk>/delete/', QanunvericilikDeleteView.as_view(), name='qanunvericilik-delete'),
 
+    # Nəzarət URL-ləri
     path('nezaret/', NezaretListView.as_view(), name='nezaret-list'),
-    path('nezaret/<int:pk>/', NezaretDetailView.as_view(), name='nezaret-detail'),
     path('nezaret/create/', NezaretCreateView.as_view(), name='nezaret-create'),
+    path('nezaret/<int:pk>/', NezaretDetailView.as_view(), name='nezaret-detail'),
     path('nezaret/<int:pk>/update/', NezaretUpdateView.as_view(), name='nezaret-update'),
     path('nezaret/<int:pk>/delete/', NezaretDeleteView.as_view(), name='nezaret-delete'),
     path('nezaret/qoshmafayl/<int:pk>/delete/', NezaretQoshmaFaylDeleteView.as_view(), name='nezaret-qoshmafayl-delete'),
