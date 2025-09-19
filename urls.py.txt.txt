@@ -21,10 +21,12 @@ from .views import (
     NezaretUpdateView,
     NezaretDeleteView,
     NezaretQoshmaFaylDeleteView,
-    StrukturQurumListView,
-    StrukturQurumCreateView,
-    StrukturQurumUpdateView,
-    StrukturQurumDeleteView,
+    StrukturListView, 
+    StrukturDetailView, 
+    StrukturCreateView,
+    StrukturUpdateView, 
+    StrukturDeleteView, 
+    StrukturQoshmaFaylDeleteView,
 )
 
 urlpatterns = [
@@ -55,8 +57,10 @@ urlpatterns = [
     path('nezaret/qoshmafayl/<int:pk>/delete/', NezaretQoshmaFaylDeleteView.as_view(), name='nezaret-qoshmafayl-delete'),
     
     # Struktur Qurum URL-ləri (yeni)
-    path('struktur/', StrukturQurumListView.as_view(), name='struktur-list'),
-    path('struktur/new/', StrukturQurumCreateView.as_view(), name='struktur-create'),
-    path('struktur/<int:pk>/update/', StrukturQurumUpdateView.as_view(), name='struktur-update'),
-    path('struktur/<int:pk>/delete/', StrukturQurumDeleteView.as_view(), name='struktur-delete'),
+    path('struktur/', StrukturListView.as_view(), name='struktur-list'),
+    path('struktur/create/', StrukturCreateView.as_view(), name='struktur-create'),
+    path('struktur/<int:pk>/', StrukturDetailView.as_view(), name='struktur-detail'),
+    path('struktur/<int:pk>/update/', StrukturUpdateView.as_view(), name='struktur-update'),
+    path('struktur/<int:pk>/delete/', StrukturDeleteView.as_view(), name='struktur-delete'),
+    path('struktur/qoshmafayl/<int:pk>/delete/', StrukturQoshmaFaylDeleteView.as_view(), name='struktur-qoshmafayl-delete'),
 ]
