@@ -61,29 +61,15 @@ class Tapshiriq(models.Model):
         return self.mezmun[:50]
 
     def save(self, *args, **kwargs):
-        """
-        Avtomatik status məntiqi:
-        - Əgər status 'İcradadır' və tarix keçibsə -> 'İcra edilmədi'
-        - Əgər status 'İcra edilmədi' və tarix gələcəkdədirsə -> 'İcradadır'
-        Qeyd: queryset.update(...) çağırışı save() çağırmır — ona görə views.py-də
-        bulk update istifadə olunursa, həmin update əməliyyatına diqqət et.
-        """
         today = date.today()
-
-        # Əvvəlcə mövcud vəziyyəti nəzərə alıb lazımi dəyişiklikləri et
         if self.status == 'İcradadır' and self.son_icra_tarixi < today:
             self.status = 'İcra edilmədi'
         elif self.status == 'İcra edilmədi' and self.son_icra_tarixi >= today:
             self.status = 'İcradadır'
-
         super().save(*args, **kwargs)
 
     @property
     def effective_status(self):
-        """
-        Tarixə əsasən "real" status (məsələn: əgər status 'İcra edilmədi' amma tarix gələcəkdədirsə,
-        real vəziyyət 'İcradadır' kimi qiymətləndirilə bilər).
-        """
         today = date.today()
         if self.status == 'İcra edilmədi' and self.son_icra_tarixi >= today:
             return 'İcradadır'
@@ -91,10 +77,6 @@ class Tapshiriq(models.Model):
 
     @property
     def is_warning(self):
-        """
-        Son 5 günə düşən, hələ icra edilməmiş tapşırıqlar üçün xəbərdarlıq.
-        (İcra edildi olanlar xəbərdar edilməz)
-        """
         today = date.today()
         if self.status == 'İcra edildi':
             return False
@@ -102,11 +84,6 @@ class Tapshiriq(models.Model):
 
     @property
     def is_expired(self):
-        """
-        Əgər tapşırıq icra edilməyibsə və son_icra_tarixi keçibsə -> müddəti bitmiş.
-        Bu logic həm 'İcradadır', həm də 'İcra edilmədi' olan, tarix keçmiş tapşırıqları əhatə edəcək.
-        'İcra edildi' statusunda olanlar müddəti bitmiş sayılmayacaq.
-        """
         today = date.today()
         if self.status == 'İcra edildi':
             return False
@@ -135,14 +112,17 @@ class Qanunvericilik(models.Model):
     kateqoriya = models.CharField(max_length=3, choices=KATEQORIYA_SECIMLERI)
     yaradildi = models.DateTimeField(auto_now_add=True)
 
-    # products/models.py faylına əlavə edin
+    def __str__(self):
+        return self.ad
 
+# YENİ ƏLAVƏ OLUNAN MODELLƏR
 class Nezaret(models.Model):
     mezmun = models.TextField(verbose_name="Məzmun")
     icrachi = models.ForeignKey('Ishchi', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="İcraçı")
     qeydiyyat_nomresi = models.CharField(max_length=50, unique=True, verbose_name="Qeydiyyat №")
-    daxil_olma_tarixi = models.DateField(auto_now_add=True, verbose_name="Daxil olma tarixi")
+    daxil_olma_tarixi = models.DateField(verbose_name="Daxil olma tarixi") # auto_now_add=True silindi
     say = models.PositiveIntegerField(default=1, verbose_name="Say")
+    qeyd = models.TextField(verbose_name="Qeyd", blank=True, null=True)
     esas_fayl = models.FileField(upload_to='nezaret_esas_fayllar/', null=True, blank=True, verbose_name="Əsas fayl")
 
     def __str__(self):
