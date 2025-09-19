@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+
+<style>
+    /* Köhnə stil qalır */
+    #shexsler_table tbody td {
+        padding-top: 10px;
+        padding-bottom: 10px;
+        vertical-align: middle;
+    }
+
+    /* Cədvələ yeni stil əlavə edirik */
+    #shexsler_table {
+        border-collapse: separate; /* Bloklar arasında məsafə üçün vacibdir */
+        border-spacing: 0 1rem;    /* Bloklar arasında 1rem (təxminən 16px) şaquli məsafə */
+    }
+    
+    /* Hər bir bloku (tbody) bir az kölgəli və kənarları yumru edirik */
+    #shexsler_table tbody {
+        background-color: #f8f9fa;
+        border-radius: .5rem;
+        border: 1px solid #dee2e6;
+    }
+
+    /* Cədvəl başlığının arxa fonunu şəffaf edirik */
+    #shexsler_table thead {
+        background-color: transparent;
+        color: #6c757d;
+    }
+</style>
+<div class="card shadow-sm mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 fw-bold">Struktur Qeydiyyatı Məlumatları</h5>
+        <div>
+            {% if user.is_superuser %}
+            <a href="{% url 'struktur-update' item.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil"></i> Redaktə et</a>
+            <a href="{% url 'struktur-delete' item.pk %}" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i> Sil</a>
+            {% endif %}
+            <a href="{% url 'struktur-list' %}" class="btn btn-light btn-sm"><i class="bi bi-arrow-left"></i> Geri</a>
+        </div>
+    </div>
+    <div class="card-body">
+        <p><strong>Qeydiyyat №:</strong> {{ item.qeydiyyat_nomresi }}</p>
+        <p><strong>Məzmun:</strong> {{ item.mezmun|linebreaksbr }}</p>
+        <p><strong>Daxil olma tarixi:</strong> {{ item.daxil_olma_tarixi|date:"d.m.Y" }}</p>
+        <p><strong>Say:</strong> {{ item.say }}</p>
+        {% if item.esas_fayl %}
+            <p><strong>Əsas fayl:</strong> <a href="{{ item.esas_fayl.url }}" target="_blank">Faylı göstər/yüklə</a></p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card shadow-sm mt-4">
+    <div class="card-header bg-light fw-bold">
+        <i class="bi bi-people-fill"></i> Şəxslər üzrə Məlumatlar
+    </div>
+    <div class="card-body">
+        <div class="mb-3">
+            <label for="excel_paste_area" class="form-label"><b>Excel-dən kopyaladığınız məlumatları buraya yapışdırın (Ctrl+V):</b></label>
+            <textarea class="form-control" id="excel_paste_area" rows="4" placeholder="Sütunların sırası belə olmalıdır: S.A.A., Təvəllüd, Struktur qurum, Status, Qeyd"></textarea>
+        </div>
+        <form method="post">
+            {% csrf_token %}
+            {{ shexs_formset.management_form }}
+            <div class="table-responsive">
+                
+                <table class="table table-borderless" id="shexsler_table">
+                    <thead>
+                        <tr>
+                            <th style="width: 5%;">S/S</th>
+                            <th>S.A.A.</th>
+                            <th style="width: 15%;">Təvəllüd</th>
+                            <th>Struktur qurum</th>
+                            <th>Status</th>
+                            <th>Qeyd</th>
+                            <th style="width: 5%;">Sil</th>
+                        </tr>
+                    </thead>
+                    
+                    {% for form in shexs_formset %}
+                        {% ifchanged form.instance.struktur_qurum %}
+                            {% if not forloop.first %}</tbody>{% endif %}
+                            <tbody>
+                        {% endifchanged %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ form.id }}{{ form.saa }}</td>
+                            <td>{{ form.tevellud }}</td>
+                            <td>{{ form.struktur_qurum }}</td>
+                            <td>{{ form.status }}</td>
+                            <td>{{ form.qeyd }}</td>
+                            <td>
+                                {% if form.instance.pk %}
+                                  {{ form.DELETE }}
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% if forloop.last %}</tbody>{% endif %}
+                    {% endfor %}
+                </table>
+
+            </div>
+            <div class="d-flex justify-content-end mt-3">
+                <button type="submit" name="save_shexsler" class="btn btn-primary">
+                    <i class="bi bi-save"></i> Cədvəli Yadda Saxla
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm mt-4">
+    <div class="card-header fw-bold">Qoşma Fayllar</div>
+    <div class="card-body">
+        <ul class="list-group mb-3">
+            {% for fayl in item.qoshma_fayllar.all %}
+               <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <a href="{{ fayl.fayl.url }}" target="_blank">{{ fayl.fayl.name|cut:"struktur_qoshma_fayllar/" }}</a>
+                        {% if fayl.tesvir %}<p class="mb-0"><small class="text-muted">{{ fayl.tesvir }}</small></p>{% endif %}
+                    </div>
+                    {% if user.is_superuser %}
+                    <a href="{% url 'struktur-qoshmafayl-delete' fayl.pk %}" class="btn btn-outline-danger btn-sm">Sil</a>
+                    {% endif %}
+               </li>
+            {% empty %}
+                <li class="list-group-item text-center text-muted">Heç bir qoşma fayl tapılmadı.</li>
+            {% endfor %}
+        </ul>
+        
+        {% if user.is_superuser %}
+        <hr>
+        <h6>Yeni Qoşma Fayl Yüklə</h6>
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            {{ qoshma_fayl_form|crispy }}
+            <button type="submit" name="upload_attachment" class="btn btn-success mt-2">Yüklə</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const pasteArea = document.getElementById('excel_paste_area');
+    const table = document.getElementById('shexsler_table');
+    const totalFormsInput = document.querySelector('input[name="shexsler-TOTAL_FORMS"]');
+
+    function renumberRows() {
+        const allRows = table.querySelectorAll('tbody tr');
+        allRows.forEach((row, index) => {
+            const firstCell = row.querySelector('td:first-child');
+            if (firstCell) {
+                firstCell.textContent = index + 1;
+            }
+        });
+    }
+
+    pasteArea.addEventListener('paste', function(event) {
+        event.preventDefault();
+        
+        const pastedText = (event.clipboardData || window.clipboardData).getData('text');
+        const pastedRows = pastedText.trim().split(/\r\n|\r|\n/);
+        
+        // Bu hissə dəyişməz qalır, çünki artıq blok-blok ayırmağı Django template edir
+        // Sadəcə yeni sətir əlavə etmək üçün bu məntiqi sadələşdirə bilərik
+        let currentFormCount = table.querySelectorAll('tbody tr').length;
+        
+        if (pastedRows.length > currentFormCount) {
+             alert(`Siz ${pastedRows.length} sətir kopyalamısınız, amma cədvəldə ${currentFormCount} sətir var. Zəhmət olmasa, səhifəni yeniləyib daha çox boş sətir əlavə edin.`);
+             return;
+        }
+
+        let formRows = table.querySelectorAll('tbody tr');
+        let populatedCount = 0;
+
+        for (let i = 0; i < pastedRows.length; i++) {
+            if (i >= formRows.length) break; 
+            
+            const cells = pastedRows[i].split('\t');
+            const currentRow = formRows[i];
+            
+            const saaInput = currentRow.querySelector(`input[name$="-saa"]`);
+            const tevelludInput = currentRow.querySelector(`input[name$="-tevellud"]`);
+            const strukturInput = currentRow.querySelector(`input[name$="-struktur_qurum"]`);
+            const statusInput = currentRow.querySelector(`input[name$="-status"]`);
+            const qeydInput = currentRow.querySelector(`textarea[name$="-qeyd"]`);
+            
+            if (saaInput && cells[0]) saaInput.value = cells[0].trim();
+            if (tevelludInput && cells[1]) tevelludInput.value = cells[1].trim();
+            if (strukturInput && cells[2]) strukturInput.value = cells[2].trim();
+            if (statusInput && cells[3]) statusInput.value = cells[3].trim();
+            if (qeydInput && cells[4]) qeydInput.value = cells[4].trim();
+            
+            populatedCount++;
+        }
+        
+        if (populatedCount > 0) {
+            alert(`${populatedCount} sətir uğurla dolduruldu! Yadda saxlamaq üçün düyməni basın.`);
+            pasteArea.value = '';
+        } else {
+            alert("Məlumat yapışdırılarkən xəta baş verdi və ya uyğun formatda deyil.");
+        }
+    });
+});
+</script>
+{% endblock %}
