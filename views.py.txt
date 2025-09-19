@@ -12,8 +12,9 @@ from django.contrib import messages
 from .models import Tapshiriq, Ishchi, Shobe, QoshmaFayl, Qanunvericilik, Nezaret, NezaretQoshmaFayl
 from .forms import TaskForm, QoshmaFaylForm, QanunvericilikForm, NezaretForm, NezaretQoshmaFaylForm
 
-from .models import StrukturQurum
-from .forms import StrukturQurumForm
+from django.forms import modelformset_factory
+from .models import Struktur, StrukturQoshmaFayl, StrukturShexs
+from .forms import StrukturForm, StrukturQoshmaFaylForm, StrukturShexsForm
 
 
 class TaskOwnerOrAdminMixin(UserPassesTestMixin):
@@ -386,36 +387,126 @@ class NezaretQoshmaFaylDeleteView(LoginRequiredMixin, UserPassesTestMixin, Delet
     
     # ... (mövcud view-lardan sonra bu kodu əlavə edin)
 
-class StrukturQurumListView(LoginRequiredMixin, ListView):
-    model = StrukturQurum
+class StrukturListView(LoginRequiredMixin, ListView):
+    model = Struktur
     template_name = 'products/struktur_list.html'
-    context_object_name = 'qurumlar'
+    context_object_name = 'items'
+    paginate_by = 10
 
-class StrukturQurumCreateView(LoginRequiredMixin, SuperuserRequiredMixin, CreateView):
-    model = StrukturQurum
-    form_class = StrukturQurumForm
+    def get_queryset(self):
+        search_query = self.request.GET.get('q', '')
+        qs = Struktur.objects.select_related('icrachi').order_by('-daxil_olma_tarixi')
+        if search_query:
+            qs = qs.filter(
+                Q(mezmun__icontains=search_query) |
+                Q(qeydiyyat_nomresi__icontains=search_query)
+            )
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['search_query'] = self.request.GET.get('q', '')
+        return context
+
+from collections import OrderedDict
+# ... (faylın yuxarısındakı digər importlarınız qalır) ...
+
+class StrukturDetailView(LoginRequiredMixin, DetailView):
+    model = Struktur
+    template_name = 'products/struktur_detail.html'
+    context_object_name = 'item'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        struktur_item = self.get_object()
+        context['qoshma_fayl_form'] = StrukturQoshmaFaylForm()
+        
+        ShexsFormSet = modelformset_factory(StrukturShexs, form=StrukturShexsForm, extra=5, can_delete=True)
+        # Çeşidləmə vacibdir!
+        queryset = StrukturShexs.objects.filter(struktur=struktur_item).order_by('struktur_qurum', 'id')
+        
+        # Formseti POST sorğusu ilə birlikdə hazırlayırıq ki, xətalar görünsün
+        if self.request.method == 'POST' and 'save_shexsler' in self.request.POST:
+            formset = ShexsFormSet(self.request.POST, queryset=queryset, prefix='shexsler')
+        else:
+            formset = ShexsFormSet(queryset=queryset, prefix='shexsler')
+
+        # Formaları "struktur_qurum" adına görə qruplaşdırırıq
+        grouped_forms = OrderedDict()
+        for form in formset:
+            group_key = form.initial.get('struktur_qurum') or "Yeni Qeydlər"
+            if group_key not in grouped_forms:
+                grouped_forms[group_key] = []
+            grouped_forms[group_key].append(form)
+
+        context['shexs_formset'] = formset  # Bu, management_form üçün lazımdır
+        context['grouped_forms'] = grouped_forms
+        
+        return context
+
+    # "post" metodu əvvəlki kimi qalır, ona dəyməyin.
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        
+        if 'upload_attachment' in request.POST:
+            # ... (qoşma fayl məntiqi)
+            pass
+        elif 'save_shexsler' in request.POST:
+            ShexsFormSet = modelformset_factory(StrukturShexs, form=StrukturShexsForm, extra=1, can_delete=True)
+            formset = ShexsFormSet(request.POST, prefix='shexsler')
+            
+            if formset.is_valid():
+                instances = formset.save(commit=False)
+                for instance in instances:
+                    instance.struktur = self.object
+                    instance.save()
+                for form in formset.deleted_forms:
+                    form.instance.delete()
+                messages.success(request, "Cədvəl uğurla yadda saxlanıldı.")
+                return redirect('struktur-detail', pk=self.object.pk)
+            else:
+                messages.error(request, "Cədvəli yadda saxlayarkən xəta baş verdi. Zəhmət olmasa, səhvləri düzəldin.")
+                # Səhvli formanı istifadəçiyə geri göstəririk
+                context = self.get_context_data()
+                context['grouped_forms'] = None # Formsetdə xəta varsa, qruplaşdırmanı ləğv edirik
+                context['shexs_formset'] = formset
+                return self.render_to_response(context)
+        
+        return redirect('struktur-detail', pk=self.object.pk)
+
+class StrukturCreateView(LoginRequiredMixin, SuperuserRequiredMixin, CreateView):
+    model = Struktur
+    form_class = StrukturForm
     template_name = 'products/struktur_form.html'
     success_url = reverse_lazy('struktur-list')
 
     def form_valid(self, form):
-        messages.success(self.request, "Yeni struktur qurum uğurla yaradıldı.")
+        messages.success(self.request, "Struktur qeydiyyatı uğurla yaradıldı.")
         return super().form_valid(form)
 
-class StrukturQurumUpdateView(LoginRequiredMixin, SuperuserRequiredMixin, UpdateView):
-    model = StrukturQurum
-    form_class = StrukturQurumForm
+class StrukturUpdateView(LoginRequiredMixin, SuperuserRequiredMixin, UpdateView):
+    model = Struktur
+    form_class = StrukturForm
     template_name = 'products/struktur_form.html'
     success_url = reverse_lazy('struktur-list')
 
     def form_valid(self, form):
-        messages.success(self.request, "Struktur qurum uğurla yeniləndi.")
+        messages.success(self.request, "Struktur qeydiyyatı uğurla yeniləndi.")
         return super().form_valid(form)
 
-class StrukturQurumDeleteView(LoginRequiredMixin, SuperuserRequiredMixin, DeleteView):
-    model = StrukturQurum
+class StrukturDeleteView(LoginRequiredMixin, SuperuserRequiredMixin, DeleteView):
+    model = Struktur
     template_name = 'products/struktur_confirm_delete.html'
     success_url = reverse_lazy('struktur-list')
 
     def form_valid(self, form):
-        messages.success(self.request, "Struktur qurum silindi.")
+        messages.success(self.request, "Struktur qeydiyyatı silindi.")
         return super().form_valid(form)
+
+class StrukturQoshmaFaylDeleteView(LoginRequiredMixin, SuperuserRequiredMixin, DeleteView):
+    model = StrukturQoshmaFayl
+    template_name = 'products/qoshmafayl_confirm_delete.html' # Ümumi şablonu istifadə edə bilərik
+
+    def get_success_url(self):
+        messages.success(self.request, "Qoşma fayl silindi.")
+        return reverse('struktur-detail', kwargs={'pk': self.object.struktur.pk})
