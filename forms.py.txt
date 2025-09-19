@@ -1,7 +1,6 @@
 # products/forms.py
-
 from django import forms
-from .models import Tapshiriq, QoshmaFayl, Qanunvericilik, Ishchi
+from .models import Tapshiriq, QoshmaFayl, Qanunvericilik, Ishchi, Nezaret, NezaretQoshmaFayl
 
 
 class TaskForm(forms.ModelForm):
@@ -12,45 +11,33 @@ class TaskForm(forms.ModelForm):
             'son_icra_tarixi', 'status', 'nezaret_tipi', 'esas_fayl'
         ]
         widgets = {
-            'son_icra_tarixi': forms.TextInput(attrs={'class': 'form-control'})
+            'son_icra_tarixi': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'})
         }
 
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
 
-        # Bütün inputlara default class veririk
         for field in self.fields.values():
             field.widget.attrs.setdefault('class', 'form-control')
 
-        # İstifadəçi superuser deyilsə
         if self.user and not self.user.is_superuser:
             try:
                 ishchi = Ishchi.objects.get(user=self.user)
-
                 if ishchi.istifadechi_tipi == "Əməkdaş":
-                    # Əməkdaş üçün icrachi gizlədilir və vacib olmur
                     self.fields['icrachi'].widget = forms.HiddenInput()
                     self.fields['icrachi'].required = False
-
                 elif ishchi.istifadechi_tipi in ("Rəis", "Admin"):
-                    # Rəis/Admin yalnız əməkdaşları icraçı kimi seçə bilər
                     self.fields['icrachi'].queryset = Ishchi.objects.filter(
                         istifadechi_tipi="Əməkdaş"
                     )
-
             except Ishchi.DoesNotExist:
-                # Əgər işçi tapılmadısa bütün sahələri deaktiv et
                 for field in self.fields.values():
                     field.disabled = True
 
     def clean(self):
-        """
-        Əgər əməkdaşdırsa və icrachi boşdursa, avtomatik özünü icraçı təyin edir.
-        """
         cleaned_data = super().clean()
         icrachi = cleaned_data.get('icrachi')
-
         if not icrachi and self.user:
             try:
                 ishchi = Ishchi.objects.get(user=self.user)
@@ -58,7 +45,6 @@ class TaskForm(forms.ModelForm):
                     cleaned_data['icrachi'] = ishchi
             except Ishchi.DoesNotExist:
                 pass
-
         return cleaned_data
 
 
@@ -73,12 +59,15 @@ class QanunvericilikForm(forms.ModelForm):
         model = Qanunvericilik
         fields = ['ad', 'metn', 'audio_fayl', 'link', 'kateqoriya']
 
-# products/forms.py faylına əlavə edin
-
+# YENİ ƏLAVƏ OLUNAN FORMLAR
 class NezaretForm(forms.ModelForm):
     class Meta:
         model = Nezaret
-        fields = ['mezmun', 'icrachi', 'qeydiyyat_nomresi', 'say', 'esas_fayl']
+        # "fields" siyahısına 'qeyd' əlavə edildi
+        fields = ['mezmun', 'qeyd', 'icrachi', 'qeydiyyat_nomresi', 'daxil_olma_tarixi', 'say', 'esas_fayl']
+        widgets = {
+            'daxil_olma_tarixi': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'})
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -87,7 +76,6 @@ class NezaretForm(forms.ModelForm):
         self.fields['icrachi'].queryset = Ishchi.objects.filter(
             istifadechi_tipi__in=['Əməkdaş', 'Rəis']
         )
-
 
 class NezaretQoshmaFaylForm(forms.ModelForm):
     class Meta:
