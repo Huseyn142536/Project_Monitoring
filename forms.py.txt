@@ -1,7 +1,8 @@
 # products/forms.py
 from django import forms
 from .models import Tapshiriq, QoshmaFayl, Qanunvericilik, Ishchi, Nezaret, NezaretQoshmaFayl
-from .models import StrukturQurum
+from .models import Struktur, StrukturQoshmaFayl
+from .models import StrukturShexs
 
 
 class TaskForm(forms.ModelForm):
@@ -83,10 +84,40 @@ class NezaretQoshmaFaylForm(forms.ModelForm):
         model = NezaretQoshmaFayl
         fields = ['fayl', 'tesvir']
 
-# ... (mövcud formalardan sonra)
-
-class StrukturQurumForm(forms.ModelForm):
-    # Bu sətirlərdən əvvəl 4 boşluq (və ya 1 Tab) olmalıdır
+class StrukturForm(forms.ModelForm):
     class Meta:
-        model = StrukturQurum
-        fields = ['ad']
+        model = Struktur
+        # 'icrachi' sahəsi buradan silindi
+        fields = ['mezmun', 'qeyd', 'qeydiyyat_nomresi', 'daxil_olma_tarixi', 'say', 'esas_fayl']
+        widgets = {
+            'daxil_olma_tarixi': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'})
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs.setdefault('class', 'form-control')
+
+class StrukturQoshmaFaylForm(forms.ModelForm):
+    class Meta:
+        model = StrukturQoshmaFayl
+        fields = ['fayl', 'tesvir']
+
+
+class StrukturShexsForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Bütün sahələri qeyri-məcburi edirik
+        for field in self.fields.values():
+            field.required = False
+
+    class Meta:
+        model = StrukturShexs
+        fields = ['saa', 'tevellud', 'struktur_qurum', 'status', 'qeyd']
+        widgets = {
+            'saa': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'tevellud': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'struktur_qurum': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'status': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'qeyd': forms.Textarea(attrs={'class': 'form-control form-control-sm', 'rows': 1}),
+        }
