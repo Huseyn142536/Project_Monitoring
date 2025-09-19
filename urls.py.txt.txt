@@ -21,6 +21,10 @@ from .views import (
     NezaretUpdateView,
     NezaretDeleteView,
     NezaretQoshmaFaylDeleteView,
+    StrukturQurumListView,
+    StrukturQurumCreateView,
+    StrukturQurumUpdateView,
+    StrukturQurumDeleteView,
 )
 
 urlpatterns = [
@@ -49,4 +53,10 @@ urlpatterns = [
     path('nezaret/<int:pk>/update/', NezaretUpdateView.as_view(), name='nezaret-update'),
     path('nezaret/<int:pk>/delete/', NezaretDeleteView.as_view(), name='nezaret-delete'),
     path('nezaret/qoshmafayl/<int:pk>/delete/', NezaretQoshmaFaylDeleteView.as_view(), name='nezaret-qoshmafayl-delete'),
+    
+    # Struktur Qurum URL-ləri (yeni)
+    path('struktur/', StrukturQurumListView.as_view(), name='struktur-list'),
+    path('struktur/new/', StrukturQurumCreateView.as_view(), name='struktur-create'),
+    path('struktur/<int:pk>/update/', StrukturQurumUpdateView.as_view(), name='struktur-update'),
+    path('struktur/<int:pk>/delete/', StrukturQurumDeleteView.as_view(), name='struktur-delete'),
 ]
